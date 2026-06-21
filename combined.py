@@ -313,6 +313,7 @@ def main():
     model = train_model(train_data_str, train_labels, use_bigrams=False, use_unigrams=True)
 
     accuracy = evaluate_model(model, test_data_str, test_labels)
+    print("accuracy", accuracy)
 
     stopword_name = "without_stopwords"
 
