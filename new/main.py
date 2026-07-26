@@ -1,14 +1,15 @@
 from preprocessing import load_and_preprocess_data
 from rnn import RNNModel
+from gru import GRUModel
+from lstm import LSTMModel
+from dataloader import create_dataloaders
 from train import train_model
-
 import torch
 import torch.nn as nn
-from torch.utils.data import TensorDataset, DataLoader
-
 
 def main():
 
+    # preprocess
     (
         X_train,
         X_val,
@@ -16,76 +17,50 @@ def main():
         y_train,
         y_val,
         y_test,
-        tokenizer,
+        vocab,
         mlb,
     ) = load_and_preprocess_data(
         "/workspaces/MSE-641-Project/data/data.csv"
     )
 
-    vocab_size = len(tokenizer.word_index) + 1
-    num_classes = len(mlb.classes_)
-
-    print(f"Vocabulary Size: {vocab_size}")
-    print(f"Number of Genres: {num_classes}")
-
-    # Create datasets
-    train_dataset = TensorDataset(
-        torch.tensor(X_train, dtype=torch.long),
-        torch.tensor(y_train, dtype=torch.float32),
+    # put preprocessed data in data loaders
+    (
+        train_loader,
+        val_loader,
+        test_loader,
+    ) = create_dataloaders(
+        X_train,
+        X_val,
+        X_test,
+        y_train,
+        y_val,
+        y_test,
+        batch_size=64,
     )
 
-    val_dataset = TensorDataset(
-        torch.tensor(X_val, dtype=torch.long),
-        torch.tensor(y_val, dtype=torch.float32),
+    # make model
+    model = LSTMModel(
+        vocab_size=len(vocab),
+        embedding_dim=128,
+        hidden_dim=128,
+        output_dim=len(mlb.classes_),
     )
 
-    # Create dataloaders
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=32,
-        shuffle=True,
-    )
+    # define training criterion
+    criterion = nn.BCEWithLogitsLoss()
 
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=32,
-        shuffle=False,
-    )
-
+    # define device on which to train
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
     )
 
-    print(f"Using device: {device}")
-
-    print("Creating model...")
-    model = RNNModel(
-        vocab_size=vocab_size,
-        embedding_dim=100,
-        hidden_dim=128,
-        output_dim=num_classes,
-    )
-
-    print("Model created")
-    criterion = nn.BCEWithLogitsLoss()
-    print("Criterion created")
-
-    print("Model parameters:")
-
-    for name, param in model.named_parameters():
-        print(name, param.shape)
-
-    print("Total params:",
-        sum(p.numel() for p in model.parameters()))
-
-    optimizer = torch.optim.SGD(
+    # define training approach
+    optimizer = torch.optim.Adam(
         model.parameters(),
-        lr=0.01,
+        lr=0.001,
     )
 
-    print("Optimizer created")
-    print("Starting training...")
-
+    # train the model
     train_losses, val_losses = train_model(
         model=model,
         train_loader=train_loader,
@@ -96,15 +71,14 @@ def main():
         device=device,
     )
 
-    print("Training Complete!")
-
-    torch.save(
-        model.state_dict(),
-        "rnn_model.pth"
-    )
-
-    print("Model saved as rnn_model.pth")
-
+    # print("Training shape:", X_train.shape)
+    # print("Validation shape:", X_val.shape)
+    # print("Test shape:", X_test.shape)
+    # print("Label shape:", y_train.shape)
+    # print("Vocabulary size:", len(vocab))
+    # print("train_loader", train_loader)
+    print("train_losses", train_losses)
+    print("val_losses", val_losses)
 
 if __name__ == "__main__":
     main()

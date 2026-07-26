@@ -268,25 +268,3 @@ def load_and_preprocess_data(
         vocab,
         mlb,
     )
-
-
-if __name__ == "__main__":
-
-    (
-        X_train,
-        X_val,
-        X_test,
-        y_train,
-        y_val,
-        y_test,
-        vocab,
-        mlb,
-    ) = load_and_preprocess_data(
-        "/workspaces/MSE-641-Project/data/data.csv"
-    )
-
-    print("Training shape:", X_train.shape)
-    print("Validation shape:", X_val.shape)
-    print("Test shape:", X_test.shape)
-    print("Label shape:", y_train.shape)
-    print("Vocabulary size:", len(vocab))
