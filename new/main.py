@@ -1,16 +1,20 @@
+from pathlib import Path
+
 from preprocessing import load_and_preprocess_data
-from rnn import RNNModel
-from gru import GRUModel
-from lstm import LSTMModel
+from bert import BERTModel
 from dataloader import create_dataloaders
 from train import train_model
-import csv
 import torch
 import torch.nn as nn
 
-DATA_PATH = "/workspaces/MSE-641-Project/data/data.csv"
-
 def main():
+    project_root = Path(__file__).resolve().parent.parent
+    data_path = project_root / "data" / "data.csv"
+
+    if not data_path.exists():
+        raise FileNotFoundError(
+            f"Dataset not found at expected path: {data_path}"
+        )
 
     MODEL_TYPE = "lstm"  # change this to "rnn", "gru", or "lstm"
 
@@ -28,7 +32,7 @@ def main():
         vocab,
         mlb,
     ) = load_and_preprocess_data(
-        DATA_PATH,
+        "/workspaces/MSE-641-Project/data/data.csv"
     )
 
     # Print first 2 samples of X_train and y_train for verification
@@ -45,23 +49,15 @@ def main():
         batch_size=64,
     )
 
-    model_classes = {
-        "rnn": RNNModel,
-        "gru": GRUModel,
-        "lstm": LSTMModel,
-    }
-
-    if MODEL_TYPE not in model_classes:
-        raise ValueError(
-            f"Unknown MODEL_TYPE: {MODEL_TYPE!r}. "
-            f"Choose from 'rnn', 'gru', 'lstm'."
-        )
-
-    model = model_classes[MODEL_TYPE](
+    # make model
+    model = LSTMModel(
         vocab_size=len(vocab),
-        embedding_dim=64,
-        hidden_dim=64,
+        embedding_dim=128,
+        hidden_dim=128,
         output_dim=len(mlb.classes_),
+        num_layers=2,
+        num_heads=4,
+        max_length=200,
     )
 
     lr = 0.01
@@ -81,20 +77,26 @@ def main():
         val_loader=val_loader,
         criterion=criterion,
         optimizer=optimizer,
-        num_epochs=10,
+        num_epochs=2,
         device=device,
     )
 
-    with open("/workspaces/MSE-641-Project/losses.csv", "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["epoch", "train_loss", "val_loss"])
-        for epoch, (train_loss, val_loss) in enumerate(zip(train_losses, val_losses), start=1):
-            writer.writerow([epoch, train_loss, val_loss])
+    micro_f1, macro_f1 = evaluate_model(
+        model=model,
+        data_loader=test_loader,
+        device=device,
+    )
 
-    print("Model type:", MODEL_TYPE)
-    print("Number of labels:", len(mlb.classes_))
+    # print("Training shape:", X_train.shape)
+    # print("Validation shape:", X_val.shape)
+    # print("Test shape:", X_test.shape)
+    # print("Label shape:", y_train.shape)
+    # print("Vocabulary size:", len(vocab))
+    # print("train_loader", train_loader)
     print("train_losses", train_losses)
     print("val_losses", val_losses)
+    print(f"Test Micro F1: {micro_f1:.4f}")
+    print(f"Test Macro F1: {macro_f1:.4f}")
 
 
 if __name__ == "__main__":
