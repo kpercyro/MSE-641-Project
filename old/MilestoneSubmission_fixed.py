@@ -8,7 +8,6 @@ import re
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import accuracy_score, f1_score
@@ -22,92 +21,17 @@ NEW_PREPROCESSING_PATH = PROJECT_ROOT / "new"
 if str(NEW_PREPROCESSING_PATH) not in sys.path:
     sys.path.insert(0, str(NEW_PREPROCESSING_PATH))
 
-from preprocessing import tokenize as preprocess_tokenize
-
-
-def load_data(data_path):
-    labeled_data = []
-
-    with open(data_path, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-
-        for row in reader:
-            overview = (row.get("overview") or "").strip()
-            genre_string = (row.get("genre") or "").strip()
-
-            if not overview or not genre_string:
-                continue
-
-            try:
-                genre_list = parse_genres(genre_string)
-            except (ValueError, SyntaxError):
-                continue
-
-            if not genre_list:
-                continue
-
-            labeled_data.append((overview, genre_list))
-
-    return labeled_data
-
-
-def parse_genres(genre_string):
-    if genre_string.startswith("["):
-        try:
-            parsed = ast.literal_eval(genre_string)
-        except (ValueError, SyntaxError) as exc:
-            raise ValueError("Invalid genre list") from exc
-
-        if isinstance(parsed, list):
-            return [str(item).strip() for item in parsed if str(item).strip()]
-
-    return [genre_string]
-
-
-def shuffle_data(labeled_data, seed=42):
-    random.seed(seed)
-    random.shuffle(labeled_data)
-    return labeled_data
-
-
-def tokenize(text):
-    return preprocess_tokenize(text)
-
-
-def split_data(tokenized_texts, labels, train_ratio=0.8, val_ratio=0.1, test_ratio=0.1):
-    if round(train_ratio + val_ratio + test_ratio, 5) != 1.0:
-        raise ValueError("Train, validation, and test ratios must sum to 1.0")
-
-    train_count = int(train_ratio * len(labels))
-    val_count = int(val_ratio * len(labels))
-
-    if train_count == 0:
-        raise ValueError("Training split is empty; dataset is too small")
-
-    train_texts = tokenized_texts[:train_count]
-    val_texts = tokenized_texts[train_count:train_count + val_count]
-    test_texts = tokenized_texts[train_count + val_count:]
-
-    train_labels = labels[:train_count]
-    val_labels = labels[train_count:train_count + val_count]
-    test_labels = labels[train_count + val_count:]
-
-    return train_texts, val_texts, test_texts, train_labels, val_labels, test_labels
-
+from preprocessing import (
+    load_data,
+    shuffle_data,
+    tokenize,
+    split_data,
+    encode_labels,
+)
+from evaluate import compute_loss, evaluate_probabilities
 
 def convert_tokens_to_strings(tokenized_texts):
     return [" ".join(tokens) for tokens in tokenized_texts]
-
-
-def encode_labels(train_labels, val_labels, test_labels):
-    mlb = MultiLabelBinarizer()
-
-    train_labels_binary = mlb.fit_transform(train_labels)
-    val_labels_binary = mlb.transform(val_labels)
-    test_labels_binary = mlb.transform(test_labels)
-
-    return train_labels_binary, val_labels_binary, test_labels_binary, mlb
-
 
 def train_model(train_data, train_labels_binary, use_bigrams=False, use_unigrams=True):
     if use_unigrams and use_bigrams:
@@ -134,23 +58,14 @@ def select_threshold(model, train_data, val_data, train_labels_binary, val_label
     train_probabilities = model.predict_proba(train_data)
     val_probabilities = model.predict_proba(val_data)
 
-    def compute_binary_loss(labels_binary, probabilities):
-        epsilon = 1e-15
-        probabilities = np.clip(probabilities, epsilon, 1 - epsilon)
-
-        return -np.mean(
-            labels_binary * np.log(probabilities)
-            + (1 - labels_binary) * np.log(1 - probabilities)
-        )
-
-    train_loss = compute_binary_loss(
+    train_loss = compute_loss(
         train_labels_binary,
-        train_probabilities
+        train_probabilities,
     )
 
-    val_loss = compute_binary_loss(
+    val_loss = compute_loss(
         val_labels_binary,
-        val_probabilities
+        val_probabilities,
     )
 
     best_threshold = 0.5
@@ -174,21 +89,14 @@ def select_threshold(model, train_data, val_data, train_labels_binary, val_label
     )
 
     for threshold in thresholds:
-        val_predictions = (val_probabilities > threshold).astype(int)
-
-        micro_f1 = f1_score(
+        metrics, val_predictions = evaluate_probabilities(
+            val_probabilities,
             val_labels_binary,
-            val_predictions,
-            average="micro",
-            zero_division=0
+            threshold=threshold,
         )
 
-        macro_f1 = f1_score(
-            val_labels_binary,
-            val_predictions,
-            average="macro",
-            zero_division=0
-        )
+        micro_f1 = metrics["micro_f1"]
+        macro_f1 = metrics["macro_f1"]
 
         print(
             f"{threshold:<12.2f}"
@@ -209,20 +117,23 @@ def select_threshold(model, train_data, val_data, train_labels_binary, val_label
 
 def evaluate_model(model, test_data, test_labels_binary, threshold):
     probs = model.predict_proba(test_data)
-    predictions = (probs > threshold).astype(int)
+    metrics, predictions = evaluate_probabilities(
+        probs,
+        test_labels_binary,
+        threshold=threshold,
+    )
 
     exact_match_accuracy = accuracy_score(test_labels_binary, predictions)
-    micro_f1 = f1_score(test_labels_binary, predictions, average="micro", zero_division=0)
-    macro_f1 = f1_score(test_labels_binary, predictions, average="macro", zero_division=0)
 
     results = {
         "exact_match_accuracy": exact_match_accuracy,
-        "micro_f1": micro_f1,
-        "macro_f1": macro_f1,
+        "micro_f1": metrics["micro_f1"],
+        "macro_f1": metrics["macro_f1"],
         "threshold": threshold,
     }
 
     return results, predictions
+
 
 
 def save_model(model, file_path):

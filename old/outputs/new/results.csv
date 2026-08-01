@@ -1,0 +1,2 @@
+Feature type,Threshold,Exact-match accuracy,Micro-F1,Macro-F1
+unigrams,0.01,0.06829765545361875,0.5589735153808192,0.41345872711025144
