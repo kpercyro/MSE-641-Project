@@ -81,8 +81,8 @@ def tokenize(text, remove_stopwords=True):
 def split_data(
     tokenized_texts,
     labels,
-    train_ratio=0.8,
-    val_ratio=0.1,
+    train_ratio=0.6,
+    val_ratio=0.3,
     test_ratio=0.1,
 ):
 

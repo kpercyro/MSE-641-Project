@@ -2,7 +2,7 @@ import torch
 from sklearn.metrics import f1_score
 
 
-def evaluate_model(model, data_loader, device, threshold=0.25):
+def evaluate_model(model, data_loader, device, threshold=0.15):
     """Compute micro and macro F1 scores for multilabel classification."""
     model.eval()
 
