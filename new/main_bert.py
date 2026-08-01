@@ -2,8 +2,9 @@ from preprocessing import load_and_preprocess_data
 from rnn import RNNModel
 from gru import GRUModel
 from lstm import LSTMModel
+from bert import BertClassifier, prepare_bert_dataloaders, build_model_for
 from dataloader import create_dataloaders
-from train import train_model
+from train_transformer import train_transformer_model
 import csv
 import torch
 import torch.nn as nn
@@ -12,59 +13,19 @@ DATA_PATH = "/workspaces/MSE-641-Project/data/data.csv"
 
 def main():
 
-    MODEL_TYPE = "lstm"  # change this to "rnn", "gru", or "lstm"
-
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
     )
 
-    (
-        X_train,
-        X_val,
-        X_test,
-        y_train,
-        y_val,
-        y_test,
-        vocab,
-        mlb,
-    ) = load_and_preprocess_data(
+    train_loader, val_loader, test_loader, mlb = prepare_bert_dataloaders(
         DATA_PATH,
+        tokenizer_name="distilbert-base-uncased",
+        batch_size=8,
     )
 
-    # Print first 2 samples of X_train and y_train for verification
-    print("First 2 samples of X_train:", X_train[:2])
-    print("First 2 samples of y_train:", y_train[:2])
+    model = build_model_for(mlb, model_name="distilbert-base-uncased")
 
-    train_loader, val_loader, test_loader = create_dataloaders(
-        X_train,
-        X_val,
-        X_test,
-        y_train,
-        y_val,
-        y_test,
-        batch_size=64,
-    )
-
-    model_classes = {
-        "rnn": RNNModel,
-        "gru": GRUModel,
-        "lstm": LSTMModel,
-    }
-
-    if MODEL_TYPE not in model_classes:
-        raise ValueError(
-            f"Unknown MODEL_TYPE: {MODEL_TYPE!r}. "
-            f"Choose from 'rnn', 'gru', 'lstm'."
-        )
-
-    model = model_classes[MODEL_TYPE](
-        vocab_size=len(vocab),
-        embedding_dim=64,
-        hidden_dim=64,
-        output_dim=len(mlb.classes_),
-    )
-
-    lr = 0.01
+    lr = 2e-5  # standard fine-tuning LR for transformers, NOT 0.001
 
     model.to(device)
 
@@ -75,13 +36,13 @@ def main():
         lr=lr,
     )
 
-    train_losses, val_losses = train_model(
+    train_losses, val_losses = train_transformer_model(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
         criterion=criterion,
         optimizer=optimizer,
-        num_epochs=10,
+        num_epochs=2,
         device=device,
     )
 
@@ -91,7 +52,6 @@ def main():
         for epoch, (train_loss, val_loss) in enumerate(zip(train_losses, val_losses), start=1):
             writer.writerow([epoch, train_loss, val_loss])
 
-    print("Model type:", MODEL_TYPE)
     print("Number of labels:", len(mlb.classes_))
     print("train_losses", train_losses)
     print("val_losses", val_losses)

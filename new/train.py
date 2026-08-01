@@ -10,6 +10,7 @@ def train_model(
     num_epochs,
     device,
 ):
+    """Train an RNN/GRU/LSTM-style model on sequence batches."""
 
     model.to(device)
 
@@ -17,51 +18,36 @@ def train_model(
     val_losses = []
 
     for epoch in range(num_epochs):
-
-        # ------------------
-        # Training
-        # ------------------
         model.train()
-
         running_train_loss = 0.0
 
-        for X_batch, y_batch in train_loader:
+        for batch in train_loader:
+            optimizer.zero_grad()
 
+            X_batch, y_batch = batch
             X_batch = X_batch.to(device)
             y_batch = y_batch.to(device)
 
-            optimizer.zero_grad()
-
             outputs = model(X_batch)
-
             loss = criterion(outputs, y_batch)
-
             loss.backward()
-
             optimizer.step()
 
             running_train_loss += loss.item()
 
         avg_train_loss = running_train_loss / len(train_loader)
 
-        # ------------------
-        # Validation
-        # ------------------
         model.eval()
-
         running_val_loss = 0.0
 
         with torch.no_grad():
-
-            for X_batch, y_batch in val_loader:
-
+            for batch in val_loader:
+                X_batch, y_batch = batch
                 X_batch = X_batch.to(device)
                 y_batch = y_batch.to(device)
 
                 outputs = model(X_batch)
-
                 loss = criterion(outputs, y_batch)
-
                 running_val_loss += loss.item()
 
         avg_val_loss = running_val_loss / len(val_loader)

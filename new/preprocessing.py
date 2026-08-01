@@ -9,6 +9,15 @@ import numpy as np
 
 from sklearn.preprocessing import MultiLabelBinarizer
 
+try:
+    from nltk.corpus import stopwords as nltk_stopwords
+
+    STOPWORDS = set(nltk_stopwords.words("english"))
+except Exception:
+    STOPWORDS = {
+        "a", "an", "the", "and", "or", "but", "if", "then", "else", "when", "at", "by", "for", "from", "in", "into", "of", "on", "to", "with", "is", "are", "was", "were", "be", "been", "being", "this", "that", "these", "those", "i", "you", "he", "she", "it", "we", "they", "me", "him", "her", "us", "them", "my", "your", "our", "their", "as", "so", "such", "not", "no", "nor", "too", "very", "can", "could", "would", "should", "will", "just", "do", "does", "did", "have", "has", "had", "may", "might", "must", "who", "whom", "whose", "what", "which", "where", "when", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other", "some", "only", "own", "same", "than", "too", "very", "s", "t", "don", "should", "now"
+    }
+
 
 def load_data(data_path):
 
@@ -54,12 +63,17 @@ def shuffle_data(labeled_data, seed=42):
     return labeled_data
 
 
-def tokenize(text):
+def tokenize(text, remove_stopwords=True):
 
     for special_char in "!#$%&()*+/:,;.<=>?@[\\]^`{|}~\t\n":
         text = text.replace(special_char, "")
 
     tokenized_text = text.lower().split()
+
+    if remove_stopwords:
+        tokenized_text = [
+            token for token in tokenized_text if token not in STOPWORDS
+        ]
 
     return tokenized_text
 
@@ -185,6 +199,7 @@ def pad_sequences(
 def load_and_preprocess_data(
     data_path,
     max_length=200,
+    remove_stopwords=True,
 ):
 
     labeled_data = load_data(data_path)
@@ -195,7 +210,7 @@ def load_and_preprocess_data(
     labels = [item[1] for item in shuffled_data]
 
     tokenized_texts = [
-        tokenize(text)
+        tokenize(text, remove_stopwords=remove_stopwords)
         for text in texts
     ]
 
@@ -253,6 +268,9 @@ def load_and_preprocess_data(
         test_sequences,
         max_length=max_length,
     )
+
+    # TESTING
+    print("first tokenized text:", tokenized_texts[0])
 
     print("Genres:")
     print(mlb.classes_)

@@ -16,10 +16,17 @@ from preprocessing import load_data, shuffle_data, split_data, encode_labels
 class BertClassifier(nn.Module):
     def __init__(
         self,
+        num_labels,
         model_name="distilbert-base-uncased",
-        num_labels=None,
     ):
         super().__init__()
+
+        if num_labels is None:
+            raise ValueError(
+                "num_labels must be provided explicitly (e.g. len(mlb.classes_)); "
+                "it cannot be inferred automatically and will silently default to "
+                "the base model's config (often 2) if left unset."
+            )
 
         self.model = AutoModelForSequenceClassification.from_pretrained(
             model_name,
@@ -27,13 +34,16 @@ class BertClassifier(nn.Module):
             problem_type="multi_label_classification",
         )
 
-    def forward(self, input_ids, attention_mask=None, token_type_ids=None):
+    def forward(self, input_ids, attention_mask=None, token_type_ids=None, labels=None):
         outputs = self.model(
             input_ids=input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
+            labels=labels,  # lets HF compute BCEWithLogitsLoss internally when problem_type is set
         )
 
+        if labels is not None:
+            return outputs.loss, outputs.logits
         return outputs.logits
 
 
@@ -41,7 +51,7 @@ def prepare_bert_dataloaders(
     data_path,
     tokenizer_name="distilbert-base-uncased",
     max_length=128,
-    batch_size=8,
+    batch_size=16,
     seed=42,
 ):
     labeled_data = load_data(data_path)
@@ -75,11 +85,13 @@ def prepare_bert_dataloaders(
             max_length=max_length,
             return_tensors="pt",
         )
-        return (
-            encoded["input_ids"],
-            encoded["attention_mask"],
-            encoded.get("token_type_ids"),
+        # Some tokenizers (e.g. distilbert) don't return token_type_ids at all.
+        # Fall back to zeros so downstream tensors always have a consistent shape.
+        token_type_ids = encoded.get(
+            "token_type_ids",
+            torch.zeros_like(encoded["input_ids"]),
         )
+        return encoded["input_ids"], encoded["attention_mask"], token_type_ids
 
     train_ids, train_mask, train_token_type_ids = encode_texts(train_texts)
     val_ids, val_mask, val_token_type_ids = encode_texts(val_texts)
@@ -88,16 +100,19 @@ def prepare_bert_dataloaders(
     train_dataset = TensorDataset(
         train_ids,
         train_mask,
+        train_token_type_ids,
         torch.FloatTensor(y_train),
     )
     val_dataset = TensorDataset(
         val_ids,
         val_mask,
+        val_token_type_ids,
         torch.FloatTensor(y_val),
     )
     test_dataset = TensorDataset(
         test_ids,
         test_mask,
+        test_token_type_ids,
         torch.FloatTensor(y_test),
     )
 
@@ -118,3 +133,9 @@ def prepare_bert_dataloaders(
     )
 
     return train_loader, val_loader, test_loader, mlb
+
+
+def build_model_for(mlb, model_name="distilbert-base-uncased"):
+    """Convenience factory that ties num_labels to the actual label set,
+    so it's impossible to construct a mismatched model by accident."""
+    return BertClassifier(num_labels=len(mlb.classes_), model_name=model_name)
