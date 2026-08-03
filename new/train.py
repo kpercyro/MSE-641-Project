@@ -1,4 +1,23 @@
 import torch
+import matplotlib.pyplot as plt
+
+
+def plot_loss_curve(train_losses, val_losses, save_path="loss_plot.png"):
+    """Plot and save train/validation loss vs epoch."""
+    epochs = range(1, len(train_losses) + 1)
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(epochs, train_losses, marker="o", label="Train Loss")
+    plt.plot(epochs, val_losses, marker="o", label="Validation Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Training and Validation Loss")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
+    print(f"Saved loss curve to {save_path}")
 
 
 def train_model(
@@ -9,6 +28,8 @@ def train_model(
     optimizer,
     num_epochs,
     device,
+    plot_losses=True,
+    loss_plot_path="loss_plot_2_layer.png",
 ):
     """Train an RNN/GRU/LSTM-style model on sequence batches."""
 
@@ -60,5 +81,8 @@ def train_model(
             f"Train Loss: {avg_train_loss:.4f} | "
             f"Val Loss: {avg_val_loss:.4f}"
         )
+
+    if plot_losses:
+        plot_loss_curve(train_losses, val_losses, save_path=loss_plot_path)
 
     return train_losses, val_losses

@@ -3,7 +3,6 @@ from pathlib import Path
 from preprocessing import load_and_preprocess_data
 from rnn import RNNModel
 from gru import GRUModel
-from lstm import LSTMModel
 from dataloader import create_dataloaders
 from train import train_model
 from evaluate import evaluate_model
@@ -12,14 +11,12 @@ import torch.nn as nn
 
 def main():
     project_root = Path(__file__).resolve().parent.parent
-    data_path = project_root / "data" / "data_500.csv"
+    data_path = project_root / "data" / "data.csv"
 
     if not data_path.exists():
         raise FileNotFoundError(
             f"Dataset not found at expected path: {data_path}"
         )
-
-    MODEL_TYPE = "lstm"  # change this to "rnn", "gru", or "lstm"
 
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
@@ -52,11 +49,11 @@ def main():
         batch_size=8,
     )
 
-    # make model
-    model = LSTMModel(
+    # make model: RNNModel or GRUModel
+    model = RNNModel(
         vocab_size=len(vocab),
-        embedding_dim=128,
-        hidden_dim=128,
+        embedding_dim=64,
+        hidden_dim=64,
         output_dim=len(mlb.classes_),
         num_layers=2,
     )
@@ -82,7 +79,7 @@ def main():
         val_loader=val_loader,
         criterion=criterion,
         optimizer=optimizer,
-        num_epochs=2,
+        num_epochs=10,
         device=device,
     )
 
