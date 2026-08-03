@@ -23,6 +23,7 @@ class GRUModel(nn.Module):
             hidden_size=hidden_dim,
             num_layers=num_layers,
             batch_first=True,
+            dropout=0.2,
         )
 
         self.fc = nn.Linear(
