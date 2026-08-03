@@ -286,3 +286,46 @@ def load_and_preprocess_data(
         vocab,
         mlb,
     )
+
+
+def load_data_for_bert(data_path):
+
+    labeled_data = load_data(data_path)
+
+    shuffled_data = shuffle_data(labeled_data)
+
+    texts = [item[0] for item in shuffled_data]
+    labels = [item[1] for item in shuffled_data]
+
+    (
+        train_texts,
+        val_texts,
+        test_texts,
+        train_labels,
+        val_labels,
+        test_labels,
+    ) = split_data(
+        texts,
+        labels,
+    )
+
+    (
+        y_train,
+        y_val,
+        y_test,
+        mlb,
+    ) = encode_labels(
+        train_labels,
+        val_labels,
+        test_labels,
+    )
+
+    return (
+        train_texts,
+        val_texts,
+        test_texts,
+        y_train,
+        y_val,
+        y_test,
+        mlb,
+    )
