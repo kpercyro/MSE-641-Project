@@ -45,7 +45,7 @@ The data is split into train, validation, and test sets before model training.
   - evaluate.py - multilabel evaluation and threshold sweep logic
   - main.py - end-to-end training and evaluation entry point
   - mse-641-bert-model.ipynb - transformer-based BERT experiment
-- old/ - earlier versions of the project and historical scripts
+- old/ - baseline model and outputs
 
 ---
 
