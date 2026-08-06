@@ -9,7 +9,7 @@ class RNNModel(nn.Module):
         embedding_dim,
         hidden_dim,
         output_dim,
-        num_layers=2,
+        num_layers,
     ):
         super().__init__()
 
