@@ -1,11 +1,12 @@
 from pathlib import Path
+import time
 
 from preprocessing import load_and_preprocess_data
 from rnn import RNNModel
 from gru import GRUModel
 from dataloader import create_dataloaders
 from train import train_model
-from evaluate import evaluate_model
+from evaluate import evaluate_model_threshold_sweep
 import torch
 import torch.nn as nn
 
@@ -62,7 +63,7 @@ def main():
 
     # train model
 
-    lr = 0.01
+    lr = 0.1
 
     model.to(device)
 
@@ -73,17 +74,19 @@ def main():
         lr=lr,
     )
 
+    start_time = time.time()
     train_losses, val_losses = train_model(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
         criterion=criterion,
         optimizer=optimizer,
-        num_epochs=10,
+        num_epochs=5,
         device=device,
     )
+    training_time = time.time() - start_time
 
-    micro_f1, macro_f1 = evaluate_model(
+    results, best_result = evaluate_model_threshold_sweep(
         model=model,
         data_loader=test_loader,
         device=device,
@@ -97,8 +100,22 @@ def main():
     # print("train_loader", train_loader)
     print("train_losses", train_losses)
     print("val_losses", val_losses)
-    print(f"Test Micro F1: {micro_f1:.4f}")
-    print(f"Test Macro F1: {macro_f1:.4f}")
+    print(f"Training time: {training_time:.2f} seconds")
+
+    print("Threshold sweep results:")
+    for result in results:
+        print(
+            f"Threshold {result['threshold']:.2f}: "
+            f"Micro F1={result['micro_f1']:.4f}, Macro F1={result['macro_f1']:.4f}, "
+            f"Exact Match={result['exact_match']:.4f}"
+        )
+
+    print(
+        "Best threshold: "
+        f"{best_result['threshold']:.2f} "
+        f"(Micro F1={best_result['micro_f1']:.4f}, Macro F1={best_result['macro_f1']:.4f}, "
+        f"Exact Match={best_result['exact_match']:.4f})"
+    )
 
     # Check whether the model is predicting all zeros on the test set
     all_zero_predictions = True

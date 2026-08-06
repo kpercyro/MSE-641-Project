@@ -63,7 +63,7 @@ def tokenize(text):
     return tokenized_texts
 
 
-def split_data(tokenized_texts, labels, train_ratio=0.8, val_ratio=0.1, test_ratio=0.1):
+def split_data(tokenized_texts, labels, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
     if round(train_ratio + val_ratio + test_ratio, 5) != 1.0:
         raise ValueError("Train, validation, and test ratios must sum to 1.0")
 

@@ -4,6 +4,7 @@ import ast
 import csv
 import random
 from collections import Counter
+import nltk
 
 import numpy as np
 
